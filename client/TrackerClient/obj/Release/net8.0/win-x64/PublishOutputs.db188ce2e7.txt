@@ -1,0 +1,3 @@
+E:\Cursor\client\TrackerClient\bin\Release\net8.0\win-x64\publish\TrackerClient.pdb
+E:\Cursor\client\TrackerClient\bin\Release\net8.0\win-x64\publish\appsettings.json
+E:\Cursor\client\TrackerClient\bin\Release\net8.0\win-x64\publish\TrackerClient.exe
