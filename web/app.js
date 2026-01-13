@@ -129,12 +129,77 @@ async function loadLastLocation(employeeId) {
   setStatus(`Last updated at ${last.toLocaleString(undefined, timeOptions)}`);
 }
 
+let inactivityTimer;
+const AUTO_LOGOUT_TIME = 30 * 60 * 1000; // 30 minutes
+
+function logout() {
+  authToken = null;
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('auth_username');
+  
+  const loginCard = document.getElementById('login-card');
+  const controlCard = document.getElementById('control-card');
+  const userInfo = document.getElementById('user-info');
+  const logoutBtn = document.getElementById('logout-btn');
+  const deptSelect = document.getElementById('department-select');
+  const empSelect = document.getElementById('employee-select');
+  
+  if (loginCard) loginCard.style.display = 'block';
+  if (controlCard) controlCard.style.display = 'none';
+  if (userInfo) userInfo.textContent = '';
+  if (logoutBtn) logoutBtn.style.display = 'none';
+  
+  // Clear map
+  if (marker) { marker.remove(); marker = null; }
+  map.setView([23.8103, 90.4125], 6);
+  
+  // Clear selections
+  if (deptSelect) deptSelect.value = '';
+  if (empSelect) empSelect.innerHTML = '<option value="">Select employee</option>';
+  
+  // Stop location polling
+  if (window._locationInterval) {
+    clearInterval(window._locationInterval);
+    window._locationInterval = null;
+  }
+  
+  // Clear inactivity timer
+  if (inactivityTimer) clearTimeout(inactivityTimer);
+  
+  setStatus('Logged out.');
+}
+
+function resetInactivityTimer() {
+  if (inactivityTimer) clearTimeout(inactivityTimer);
+  if (authToken) {
+    inactivityTimer = setTimeout(() => {
+      logout();
+      setStatus('Logged out due to inactivity.');
+    }, AUTO_LOGOUT_TIME);
+  }
+}
+
+function setupAutoLogout() {
+  const events = ['mousemove', 'mousedown', 'keypress', 'touchmove', 'click'];
+  events.forEach(event => {
+    document.addEventListener(event, resetInactivityTimer);
+  });
+}
+
 function setupLoginForm() {
   const loginForm = document.getElementById('login-form');
   const loginError = document.getElementById('login-error');
   const loginCard = document.getElementById('login-card');
   const controlCard = document.getElementById('control-card');
   const userInfo = document.getElementById('user-info');
+  const logoutBtn = document.getElementById('logout-btn');
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      logout();
+    });
+  }
 
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -148,9 +213,14 @@ function setupLoginForm() {
         body: JSON.stringify({ username, password })
       });
       authToken = res.token;
+      localStorage.setItem('auth_token', authToken);
+      localStorage.setItem('auth_username', username);
       loginCard.style.display = 'none';
       controlCard.style.display = 'block';
       userInfo.textContent = `Logged in as ${username}`;
+      if (logoutBtn) logoutBtn.style.display = 'block';
+      
+      resetInactivityTimer();
       await loadDepartments();
       setStatus('Select department and employee.');
     } catch (err) {
@@ -282,10 +352,34 @@ function setupSelectors() {
 
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   initMap();
   setupLoginForm();
   setupSelectors();
+  setupAutoLogout();
+
+  // Check for saved session
+  const savedToken = localStorage.getItem('auth_token');
+  const savedUser = localStorage.getItem('auth_username');
+  if (savedToken && savedUser) {
+    authToken = savedToken;
+    const loginCard = document.getElementById('login-card');
+    const controlCard = document.getElementById('control-card');
+    const userInfo = document.getElementById('user-info');
+    const logoutBtn = document.getElementById('logout-btn');
+    loginCard.style.display = 'none';
+    controlCard.style.display = 'block';
+    userInfo.textContent = `Logged in as ${savedUser}`;
+    if (logoutBtn) logoutBtn.style.display = 'block';
+    resetInactivityTimer();
+    try {
+      await loadDepartments();
+      setStatus('Select department and employee.');
+    } catch {
+      setStatus('Session expired. Please login again.');
+      logout();
+    }
+  }
 });
 
 

@@ -50,7 +50,14 @@ internal class Program
     [STAThread]
     private static async Task Main()
     {
-        Application.SetHighDpiMode(HighDpiMode.SystemAware);
+        AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+        {
+            Log($"FATAL UnhandledException: {e.ExceptionObject}");
+        };
+
+        try
+        {
+            Application.SetHighDpiMode(HighDpiMode.SystemAware);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
@@ -227,6 +234,11 @@ internal class Program
             await Task.Delay(TimeSpan.FromSeconds(config.IntervalSeconds));
         }
     }
+    catch (Exception ex)
+    {
+        Log($"FATAL Main Error: {ex}");
+    }
+}
 
     private static AppConfig LoadConfig()
     {
